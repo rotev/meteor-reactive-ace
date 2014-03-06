@@ -5,7 +5,7 @@ defaultParseOptions =
   tolerant: false # tolerate errors, include errors: []; doesn't seem to work yet
   comments: false # comments: [type: value:]
 
-ACE_PREFIX = Meteor.settings?.public?.acePrefix || "/packages/reactive-ace/ace-builds/src"
+ACE_PREFIX = Meteor.settings.public.acePrefix || "/packages/reactive-ace/ace-builds/src"
 
 class @ReactiveAce
   constructor: (parseOptions = {}) ->
@@ -65,21 +65,39 @@ class @ReactiveAce
   setupEvents: ->
     changePosition = _.throttle =>
       #TODO could be smarter and only invalidate these when they change (esp line number)
-      @changed 'lineNumber'
-      @changed 'column'
+      if @_lineNumber != @lineNumber
+        @_lineNumber = @lineNumber
+        console.log "lineNumber", @_lineNumber
+        @changed 'lineNumber'
+
+      if @_column != @column
+        @_column = @column
+        console.log "column", @_column
+        @changed 'column'
+
     , 200
 
     @_editor.on "changeSelection", =>
-      @changed 'selection'
-      changePosition()
+      unless @_selection?.isEqual @selection
+        @_selection = @selection
+        console.log "selection", @_selection
+        @changed 'selection'
+        changePosition()
 
     changeValue = _.throttle =>
-        @changed 'value'
+        unless @_value == @value
+          @_value = @value
+          console.log "value", @_value
+          @changed 'value'
       , 500
     #This dep will be changed only after the value has stopped changing
     changeStableValue = _.debounce =>
-        @changed 'stableValue'
+        unless @_stableValue == @stableValue
+          @_stableValue = @stableValue
+          console.log('stableValue changed', @_stableValue)
+          @changed 'stableValue'          
       , 1000
+      
     @_editor.on "change", ->
       changeValue()
       changeStableValue()
@@ -233,10 +251,9 @@ ReactiveAce.addProperty 'selection', ->
     range.start.lineNumber = range.start.row + 1
     range.end.lineNumber = range.end.row + 1
     return range
-    #TODO code below doesn't work..
-#  , (value) ->
-#    @_editor?.clearSelection()
-#    @_editor?.addSelectionMarker(value)
+
+ , (value) ->
+   @_editor?.getSelection()?.setSelectionRange(value)
 
 ReactiveAce.addProperty 'checksum', ->
   return unless @value?
